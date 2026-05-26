@@ -74,7 +74,7 @@ cron.schedule('0 0 * * *', () => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log('----------------------------------------------');
-    console.log('SafeAccess IoT ONLINE');
+    console.log('SafeAccess Pro ONLINE');
     console.log(`Local: http://localhost:${PORT}`);
     console.log('----------------------------------------------');
 });
