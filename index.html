@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+    <meta name="theme-color" content="#003ec7">
+    <link rel="manifest" href="/manifest.json">
+    <title>SafeAccess IoT</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#003ec7",
+                        "primary-container": "#0052ff",
+                        "on-primary-container": "#dfe3ff",
+                        "background": "#fcf9f8",
+                        "surface": "#fcf9f8",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1c1b1b",
+                        "on-surface-variant": "#434656",
+                        "outline-variant": "#c3c5d9",
+                        "secondary": "#5c5f60"
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .pulse-animation { animation: pulse-ring 2s infinite; }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 76, 237, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(0, 76, 237, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 76, 237, 0); }
+        }
+        .connected { color: #15803d !important; }
+        #historyModal { display: none; }
+        #historyModal.active { display: flex; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col font-[Inter]">
+    
+    <header class="bg-surface w-full top-0 sticky border-b border-outline-variant flex justify-between items-center px-6 h-14 z-50">
+        <div class="flex items-center gap-4">
+            <span class="material-symbols-outlined text-primary">door_front</span>
+            <h1 class="text-xl font-bold text-primary tracking-tight">SafeAccess IoT</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="userInfo" class="hidden items-center gap-2 border-r border-outline-variant pr-4">
+                <span class="material-symbols-outlined text-secondary text-[20px]">account_circle</span>
+                <span id="userNameDisplay" class="text-xs font-bold text-on-surface"></span>
+                <button onclick="logout()" class="text-[10px] text-primary font-bold hover:underline ml-1">Salir</button>
+            </div>
+            <div id="connectionStatus" class="text-secondary flex items-center gap-1">
+                <span class="material-symbols-outlined text-[18px]">bluetooth</span>
+                <span class="text-xs font-semibold">Desconectado</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="fixed inset-0 bg-surface z-[200] flex flex-col items-center justify-center px-6">
+        <div class="w-full max-w-sm space-y-8 text-center">
+            <div class="space-y-2">
+                <div class="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-primary text-[32px]">lock_person</span>
+                </div>
+                <h2 class="text-2xl font-bold">Bienvenido a SafeAccess</h2>
+                <p class="text-secondary text-sm">Introduce tu PIN para acceder al control</p>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="password" id="pinInput" placeholder="PIN de Acceso" 
+                    class="w-full h-14 bg-surface-container-low border border-outline-variant rounded-xl px-4 text-center text-2xl tracking-[1em] focus:outline-none focus:border-primary transition-colors"
+                    maxlength="4" inputmode="numeric">
+                <button onclick="login()" id="loginBtn" class="w-full h-14 bg-primary text-white rounded-xl font-bold text-lg active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
+                    Iniciar Sesión
+                </button>
+            </div>
+            <p class="text-[10px] text-secondary">Si olvidaste tu PIN, contacta con administración.</p>
+        </div>
+    </div>
+
+    <main id="mainContent" class="opacity-20 pointer-events-none flex-grow flex flex-col items-center justify-center px-6 relative transition-opacity duration-500">
+        <div class="z-10 text-center space-y-8 max-w-[600px] w-full">
+            <div class="space-y-1">
+                <p id="systemLabel" class="text-[12px] font-semibold text-secondary uppercase tracking-widest">Esperando Conexión</p>
+                <h2 id="doorState" class="text-3xl font-bold text-on-surface">Puerta Cerrada</h2>
+            </div>
+
+            <div class="flex justify-center items-center py-8">
+                <button class="relative group" id="mainPulseButton">
+                    <div id="ripple" class="absolute inset-0 bg-primary opacity-20 rounded-full"></div>
+                    <div class="relative w-48 h-48 bg-primary-container text-on-primary-container rounded-full flex flex-col items-center justify-center shadow-xl active:scale-95 transition-all cursor-pointer">
+                        <span id="btnIcon" class="material-symbols-outlined text-[64px] mb-2" style="font-variation-settings: 'FILL' 1;">lock</span>
+                        <span id="btnText" class="text-lg font-bold">Conectar</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div class="z-10 w-full max-w-[600px] mt-12 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div onclick="abrirHistorial()" class="cursor-pointer bg-surface-container-low border border-outline-variant p-4 rounded-xl flex items-center gap-3 hover:bg-primary/5 transition-colors">
+                <div class="bg-primary/10 p-2 rounded-full">
+                    <span class="material-symbols-outlined text-primary text-[20px]">history</span>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase font-bold text-secondary">Actividad Reciente</p>
+                    <p id="lastActivity" class="text-sm font-bold">Cargando...</p>
+                    <p class="text-[10px] text-primary font-bold">Click para ver todo</p>
+                </div>
+            </div>
+            <div class="bg-surface-container-low border border-outline-variant p-4 rounded-xl flex items-center gap-3">
+                <div class="bg-primary/10 p-2 rounded-full">
+                    <span class="material-symbols-outlined text-primary text-[20px]">info</span>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase font-bold text-secondary">Estado ESP32</p>
+                    <p id="espStatus" class="text-sm font-bold">Desconectado</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL DE HISTORIAL -->
+    <div id="historyModal" class="fixed inset-0 bg-black/50 z-[100] items-center justify-center p-6">
+        <div class="bg-surface w-full max-w-lg max-h-[80vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface">
+                <h3 class="font-bold text-lg">Historial de Accesos</h3>
+                <button onclick="cerrarHistorial()" class="material-symbols-outlined p-1 hover:bg-black/5 rounded-full">close</button>
+            </div>
+            <div id="historyList" class="flex-grow overflow-y-auto p-4 space-y-3 bg-surface-container-low">
+                <!-- Se llena con JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+    
+    // Asegurar que BACKEND_URL apunte al servidor correcto
+    const BACKEND_URL = window.location.origin === "null" || window.location.protocol === "file:" 
+        ? "http://localhost:3000/api" 
+        : "/api";
+
+    if (window.location.protocol === "file:") {
+        console.warn("Advertencia: Estás abriendo el archivo directamente. El servidor debe estar corriendo en http://localhost:3000");
+    }
+
+    let bleDevice = null;
+    let bleCharacteristic = null;
+    let isDoorOpen = false;
+
+    const btn = document.getElementById('mainPulseButton');
+    const doorStateText = document.getElementById('doorState');
+    const systemLabel = document.getElementById('systemLabel');
+    const connStatus = document.getElementById('connectionStatus');
+    const ripple = document.getElementById('ripple');
+    const btnIcon = document.getElementById('btnIcon');
+    const btnText = document.getElementById('btnText');
+    const lastActivity = document.getElementById('lastActivity');
+    const espStatus = document.getElementById('espStatus');
+    const historyModal = document.getElementById('historyModal');
+    const historyList = document.getElementById('historyList');
+    const loginScreen = document.getElementById('loginScreen');
+    const mainContent = document.getElementById('mainContent');
+    const userInfo = document.getElementById('userInfo');
+    const userNameDisplay = document.getElementById('userNameDisplay');
+    const pinInput = document.getElementById('pinInput');
+
+    let currentUser = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedUser = localStorage.getItem('safeAccessUser');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            showMainUI();
+        }
+        actualizarHistorialUI();
+    });
+
+    async function login() {
+        const pin = pinInput.value;
+        if (!pin) return alert("Ingresa tu PIN");
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/autenticar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin, accion: 'Inicio Sesión' })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "PIN Incorrecto");
+
+            currentUser = { pin, nombre: data.usuario };
+            localStorage.setItem('safeAccessUser', JSON.stringify(currentUser));
+            showMainUI();
+            pinInput.value = "";
+            actualizarHistorialUI();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    function logout() {
+        currentUser = null;
+        localStorage.removeItem('safeAccessUser');
+        loginScreen.classList.remove('hidden');
+        mainContent.classList.add('opacity-20', 'pointer-events-none');
+        userInfo.classList.add('hidden');
+        userInfo.classList.remove('flex');
+    }
+
+    function showMainUI() {
+        loginScreen.classList.add('hidden');
+        mainContent.classList.remove('opacity-20', 'pointer-events-none');
+        userInfo.classList.remove('hidden');
+        userInfo.classList.add('flex');
+        userNameDisplay.innerText = currentUser.nombre;
+    }
+
+    pinInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') login();
+    });
+
+    async function connectBLE() {
+        if (!navigator.bluetooth) {
+            alert("Tu navegador no soporta Bluetooth Web o no estás en una conexión segura (localhost/https).");
+            return false;
+        }
+
+        try {
+            bleDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'SafeAccess_IoT_Door' }],
+                optionalServices: [SERVICE_UUID]
+            });
+
+            bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+            const server = await bleDevice.gatt.connect();
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+            updateUIConnected();
+            return true;
+        } catch (error) {
+            console.error("Error BLE:", error);
+            alert("Error al conectar: " + error.message);
+            return false;
+        }
+    }
+
+    function updateUIConnected() {
+        connStatus.innerHTML = `<span class="material-symbols-outlined text-[18px] connected">bluetooth_connected</span><span class="text-xs font-semibold connected">Conectado</span>`;
+        systemLabel.innerText = "Sistema Activo";
+        espStatus.innerText = "Conectado Vía BLE";
+        ripple.classList.add('pulse-animation');
+        btnIcon.innerText = isDoorOpen ? "lock_open" : "lock";
+        btnText.innerText = isDoorOpen ? "Cerrar" : "Abrir"; 
+    }
+
+    async function actualizarHistorialUI() {
+        try {
+            const res = await fetch(`${BACKEND_URL}/historial`);
+            const datos = await res.json();
+            
+            // Actualizar tarjeta principal
+            if (datos.length > 0) {
+                lastActivity.innerText = `${datos[0].usuario} (${datos[0].hora})`;
+            } else {
+                lastActivity.innerText = "Sin registros hoy";
+            }
+
+            // Llenar lista del modal
+            historyList.innerHTML = datos.map(reg => `
+                <div class="bg-surface p-3 rounded-lg border border-outline-variant flex justify-between items-center shadow-sm">
+                    <div>
+                        <p class="font-bold text-sm">${reg.usuario}</p>
+                        <p class="text-[10px] text-secondary">${reg.hora}</p>
+                    </div>
+                    <span class="text-[10px] px-2 py-1 rounded-full ${reg.accion.includes('Abrió') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'} font-bold">
+                        ${reg.accion}
+                    </span>
+                </div>
+            `).join('');
+            if (datos.length === 0) historyList.innerHTML = '<p class="text-center text-secondary text-sm">No hay actividad registrada.</p>';
+        } catch (err) {
+            console.error("Error historial:", err);
+            lastActivity.innerText = "Error al conectar con servidor";
+        }
+    }
+
+    function abrirHistorial() { 
+        actualizarHistorialUI();
+        historyModal.classList.add('active'); 
+    }
+    function cerrarHistorial() { historyModal.classList.remove('active'); }
+
+    function onDisconnected() {
+        connStatus.innerHTML = `<span class="material-symbols-outlined text-[18px]">bluetooth</span><span class="text-xs font-semibold">Desconectado</span>`;
+        systemLabel.innerText = "Esperando Conexión";
+        espStatus.innerText = "Desconectado";
+        ripple.classList.remove('pulse-animation');
+        btnIcon.innerText = "lock";
+        btnText.innerText = "Conectar";
+        bleDevice = null;
+        bleCharacteristic = null;
+    }
+
+    btn.addEventListener('click', async () => {
+        // 1. Conectar si no lo está
+        if (!bleDevice || !bleDevice.gatt.connected) {
+            const ok = await connectBLE();
+            if (!ok) return;
+        }
+
+        const accionDeseada = isDoorOpen ? "Cerró" : "Abrió";
+
+        try {
+            // 2. Registrar acción en el servidor (usando el usuario ya logueado)
+            const res = await fetch(`${BACKEND_URL}/autenticar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: currentUser.pin, accion: accionDeseada })
+            });
+
+            if (!res.ok) throw new Error("Error al registrar la acción.");
+
+            // 3. Enviar comando al ESP32 por Bluetooth
+            const encoder = new TextEncoder();
+            const cmd = isDoorOpen ? 'C' : 'A';
+            
+            if (!bleCharacteristic) {
+                throw new Error("La característica Bluetooth no está disponible. ¿Sigue conectado?");
+            }
+
+            await bleCharacteristic.writeValue(encoder.encode(cmd));
+
+            // 4. Actualizar Interfaz
+            isDoorOpen = !isDoorOpen;
+            doorStateText.innerText = isDoorOpen ? "Puerta Abierta" : "Puerta Cerrada";
+            btnIcon.innerText = isDoorOpen ? "lock_open" : "lock";
+            btnText.innerText = isDoorOpen ? "Cerrar" : "Abrir";
+            
+            actualizarHistorialUI();
+            
+        } catch (err) {
+            console.error("Error detallado:", err);
+            alert("Error de Comunicación: " + err.message);
+        }
+    });
+
+    // Registrar Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(reg => console.log('Service Worker registrado', reg))
+                .catch(err => console.log('Error al registrar Service Worker', err));
+        });
+    }
+</script>
+</body>
+</html>

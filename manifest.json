@@ -1,0 +1,17 @@
+{
+  "name": "SafeAccess IoT Control",
+  "short_name": "SafeAccess IoT",
+  "description": "Control de acceso inteligente vía BLE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcf9f8",
+  "theme_color": "#003ec7",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1000/1000946.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
