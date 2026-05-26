@@ -44,7 +44,7 @@ app.post('/api/autenticar', (req, res) => {
         return res.status(401).json({ error: "PIN de acceso incorrecto" });
     }
 
-    const horaActual = new Date().toLocaleTimeString();
+    const horaActual = new Date().toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil' });
     const stmt = db.prepare(`INSERT INTO registros (usuario, accion, hora) VALUES (?, ?, ?)`);
     stmt.run(nombreUsuario, accion, horaActual, (err) => {
         if (err) {
